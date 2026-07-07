@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ client_id }} 실적 수치 - 주간보고 관리자{% endblock %}
+{% block content %}
+<h1>{{ client_id }} 실적 수치 편집</h1>
+<p style="color:#666;">GA4/네이버/RSS로 자동 수집이 안 되는 값입니다. 매주 실제 수치로 갱신해주세요.</p>
+<form method="post">
+  <h3>채널별 진행 현황</h3>
+  <label>블로그 - 목표(건)</label>
+  <input type="number" name="blog_target" value="{{ s.blog.target }}">
+  <label>블로그 - 완료(건)</label>
+  <input type="number" name="blog_done" value="{{ s.blog.done }}">
+
+  <label>카페 침투 - 목표(세트)</label>
+  <input type="number" name="cafe_target" value="{{ s.cafe.target }}">
+  <label>카페 침투 - 완료(건)</label>
+  <input type="number" name="cafe_done" value="{{ s.cafe.done }}">
+  <label>카페 침투 - 메모</label>
+  <input type="text" name="cafe_note" value="{{ s.cafe.note }}">
+
+  <label>영수증 리뷰 - 목표(건)</label>
+  <input type="number" name="receipt_target" value="{{ s.receipt_review.target }}">
+  <label>영수증 리뷰 - 완료(건)</label>
+  <input type="number" name="receipt_done" value="{{ s.receipt_review.done }}">
+  <label>영수증 리뷰 - 메모</label>
+  <input type="text" name="receipt_note" value="{{ s.receipt_review.note }}">
+
+  <h3>스마트플레이스 (자동 수집 중이 아니라면 직접 입력)</h3>
+  <label>기간 (예: 6/29 ~ 7/5)</label>
+  <input type="text" name="sp_period" value="{{ s.smart_place.period }}">
+  <label>이번주 방문수</label>
+  <input type="number" name="sp_visits" value="{{ s.smart_place.visits }}">
+  <label>전주 방문수</label>
+  <input type="number" name="sp_visits_prev" value="{{ s.smart_place.visits_prev_week }}">
+  <label>예약/주문 신청(건)</label>
+  <input type="number" name="sp_reservations" value="{{ s.smart_place.reservations }}">
+  <label>리뷰 등록(건)</label>
+  <input type="number" name="sp_reviews" value="{{ s.smart_place.reviews }}">
+
+  <button type="submit">저장</button>
+</form>
+{% endblock %}

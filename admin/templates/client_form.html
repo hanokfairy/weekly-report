@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ '새 클라이언트' if is_new else '클라이언트 수정' }} - 주간보고 관리자{% endblock %}
+{% block content %}
+<h1>{{ '새 클라이언트 추가' if is_new else client.name + ' 설정 수정' }}</h1>
+<form method="post">
+  <label>클라이언트 ID (영문/한글, 한번 정하면 나중에 못 바꿈)</label>
+  <input type="text" name="id" value="{{ client.id if client else '' }}" {{ 'readonly' if not is_new else '' }} required>
+
+  <label>병원 표시 이름</label>
+  <input type="text" name="name" value="{{ client.name if client else '' }}" required>
+
+  <label>GA4 속성 ID (숫자만)</label>
+  <input type="text" name="property_id" value="{{ client.ga4.property_id if client else '' }}" required>
+
+  <label>네이버 순위 체크 키워드 (콤마로 구분)</label>
+  <input type="text" name="keywords" value="{{ client.naver_rank.keywords|join(', ') if client else '' }}" required>
+
+  <label>네이버 블로그 아이디 (blog.naver.com/이 부분)</label>
+  <input type="text" name="target_blog_id" value="{{ client.naver_rank.target_blog_id if client else '' }}" required>
+
+  <label>순위 체크 범위 (기본 30)</label>
+  <input type="number" name="max_rank" value="{{ client.naver_rank.max_rank if client else 30 }}">
+
+  <label>블로그 RSS 주소</label>
+  <input type="text" name="rss_url" value="{{ client.blogs[0].rss_url if client and client.blogs else '' }}" required>
+
+  <label>유입 변동 알림 기준 (%, 기본 15)</label>
+  <input type="number" name="alert_threshold_pct" value="{{ client.alert_threshold_pct if client else 15 }}">
+
+  <label>유입 급변 시 검색할 진료과/이슈 키워드 (콤마로 구분, 비워도 됨)</label>
+  <input type="text" name="news_keywords" value="{{ client.news_keywords|join(', ') if client and client.news_keywords else '' }}">
+
+  <label>Slack 채널 ID (C로 시작, 봇을 그 채널에 먼저 초대해야 함)</label>
+  <input type="text" name="channel_id" value="{{ client.slack.channel_id if client else '' }}" required>
+
+  <label>Slack 채널 이름 (메모용, 예: #리뷰)</label>
+  <input type="text" name="channel_name" value="{{ client.slack.channel_name if client else '' }}">
+
+  <button type="submit">저장</button>
+</form>
+{% endblock %}

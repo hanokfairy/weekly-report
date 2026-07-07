@@ -1,5 +1,8 @@
 .env
 config/ga4-service-account.json
+config/smart_place_credentials.json
+config/.smart_place_sessions/
+admin/users.json
 __pycache__/
 *.pyc
 .venv/

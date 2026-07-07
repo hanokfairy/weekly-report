@@ -15,10 +15,32 @@ def load_clients() -> list[dict]:
         return json.load(f)["clients"]
 
 
+def load_clients_raw() -> dict:
+    with open(CONFIG_DIR / "clients.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_clients(data: dict) -> None:
+    with open(CONFIG_DIR / "clients.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
 def load_manual_status(client_id: str) -> dict:
     with open(CONFIG_DIR / "manual_status.json", encoding="utf-8") as f:
         data = json.load(f)
     return data["clients"].get(client_id, {})
+
+
+def load_manual_status_all() -> dict:
+    with open(CONFIG_DIR / "manual_status.json", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_manual_status(data: dict) -> None:
+    with open(CONFIG_DIR / "manual_status.json", "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
 
 def env(name: str) -> str:

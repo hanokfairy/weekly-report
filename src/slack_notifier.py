@@ -13,6 +13,11 @@ def _call(bot_token: str, endpoint: str, **kwargs) -> dict:
     return data
 
 
+def send_text_message(bot_token: str, channel_id: str, text: str) -> None:
+    """짧은 알림(예: 자동 수집 실패)을 파일 첨부 없이 텍스트로만 전송한다."""
+    _call(bot_token, "chat.postMessage", json={"channel": channel_id, "text": text})
+
+
 def send_report_file(
     bot_token: str,
     channel_id: str,

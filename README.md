@@ -10,7 +10,9 @@
 - 네이버 검색에서 우리 블로그가 몇 위에 노출되는지
 - 블로그에 지난주 새로 올라온 글 목록
 - 유입이 크게 변동했을 때 관련 있을 만한 최근 의료 이슈 뉴스 자동 검색
-- 담당자가 직접 입력하는 수치(카페 침투, 영수증 리뷰, 스마트플레이스 방문/예약 등)
+- 스마트플레이스 방문/예약 수치 자동 수집(사무실 컴퓨터에서, 7단계 참고) — 실패 시 수동 입력값 사용
+- 담당자가 직접 입력하는 수치(카페 침투, 영수증 리뷰 등)
+- 코드를 몰라도 쓸 수 있는 사무실 내부 관리자 웹페이지(8단계 참고): 클라이언트 추가/실적 수정/지난 보고서 확인/즉시 실행
 
 ## 준비물 체크리스트
 
@@ -18,6 +20,7 @@
 - [ ] 구글 클라우드 GA4 서비스 계정 JSON 키 파일
 - [ ] Slack 봇 토큰 (파일 첨부 전송을 위해 Incoming Webhook 대신 Bot Token 사용)
 - [ ] (자동화하려면) GitHub 계정 및 저장소
+- [ ] (스마트플레이스 자동 수집을 쓰려면) 병원별 네이버 로그인 정보
 
 ## 폴더 구조
 
@@ -27,6 +30,8 @@
 | `config/clients.json` | 관리하는 병원(클라이언트) 목록과 설정 |
 | `config/manual_status.json` | 자동 수집이 안 되는 수치를 매주 손으로 입력하는 파일 |
 | `config/ga4-service-account.json` | 구글에서 받은 GA4 인증 키 파일 (직접 이 이름으로 저장) |
+| `config/smart_place_credentials.json` | 병원별 네이버 로그인 정보 (7단계, 로컬 전용) |
+| `admin/` | 사무실 내부용 관리자 웹페이지 (8단계) |
 | `reports/` | 매주 생성되는 보고서(.md)가 쌓이는 폴더 |
 
 ---
@@ -207,6 +212,115 @@ GitHub Actions는 **그 시점에 저장소에 저장돼 있는** `config/manual
 
 ---
 
+## 7단계. 스마트플레이스 자동 수집 설정 (사무실 컴퓨터에서 실행)
+
+스마트플레이스(네이버 플레이스 센터)는 공식 공개 API가 없어서, **병원별 네이버 계정으로 로그인해 화면의 수치를 읽어오는 방식**으로 자동화합니다. 네이버가 클라우드(GitHub Actions)에서의 로그인을 "새로운 환경"으로 인식해 자꾸 인증을 요구할 수 있어서, 이 기능은 **사무실 컴퓨터(이 저장소가 있는 Mac)에서만** 실행합니다.
+
+### 7-1. 설치
+
+```
+pip3 install -r requirements.txt -r requirements-local.txt
+playwright install chromium
+```
+
+### 7-2. 병원별 네이버 로그인 정보 입력
+
+1. `config/smart_place_credentials.example.json`을 복사해서 `config/smart_place_credentials.json`으로 저장 (이 파일은 `.gitignore`에 등록되어 있어 GitHub에는 절대 올라가지 않습니다)
+2. 병원마다 네이버 로그인 아이디/비밀번호, 그리고 **스마트플레이스 통계(방문/예약) 페이지 URL**을 채웁니다.
+   - URL 확인법: 브라우저에서 https://new.smartplace.naver.com 로그인 → 해당 병원 플레이스 선택 → 방문자/예약 수치가 보이는 통계 화면으로 이동 → 그때 주소창의 URL을 그대로 복사
+
+### 7-3. 최초 1회 수동 로그인
+
+네이버는 낯선 환경에서 로그인하면 휴대폰 인증 등을 요구할 수 있어서, 병원마다 **최초 1회는 사람이 직접** 인증을 통과시켜야 합니다.
+
+```
+python3 scrape_smart_place.py --interactive
+```
+
+브라우저 창이 뜨면 인증을 완료하세요. 한 번 통과하면 `config/.smart_place_sessions/` 폴더에 로그인 상태가 저장되어, 이후에는 사람 개입 없이 자동으로 동작합니다.
+
+### 7-4. 매주 자동 실행되도록 예약 (launchd)
+
+GitHub Actions가 매주 월요일 09:00(KST)에 보고서를 보내므로, 그 전인 **월요일 07:30**에 스마트플레이스 수치를 먼저 수집해 GitHub에 반영해두면 됩니다.
+
+`~/Library/LaunchAgents/com.weeklyreport.smartplace.plist` 파일을 아래 내용으로 만들고(경로의 `/Users/designer/weekly-report`는 실제 프로젝트 경로로 맞춰주세요):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.weeklyreport.smartplace</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/bin/python3</string>
+    <string>/Users/designer/weekly-report/scrape_smart_place.py</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/designer/weekly-report</string>
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>1</integer>
+    <key>Hour</key><integer>7</integer>
+    <key>Minute</key><integer>30</integer>
+  </dict>
+  <key>StandardOutPath</key><string>/tmp/smartplace.log</string>
+  <key>StandardErrorPath</key><string>/tmp/smartplace.log</string>
+</dict>
+</plist>
+```
+
+등록:
+
+```
+launchctl load ~/Library/LaunchAgents/com.weeklyreport.smartplace.plist
+```
+
+**중요한 한계**: 이건 네이버가 공식 지원하는 기능이 아니라 화면을 읽어오는 방식이라, 네이버가 화면 구성을 바꾸면 동작이 멈출 수 있고, 보안 정책상 세션이 만료되어 다시 `--interactive`로 로그인해야 할 수도 있습니다. 자동 수집이 실패해도 기존 수치는 그대로 유지되며, 실패 시 해당 병원 Slack 채널로 "자동 수집 실패, 수동 확인 필요" 알림이 전송됩니다.
+
+---
+
+## 8단계. 관리자 페이지 (사무실 내부 전용)
+
+코드를 몰라도 브라우저에서 클라이언트 추가/실적 수정/지난 보고서 확인/즉시 실행을 할 수 있는 페이지입니다. **사무실 내부망에서만** 접속 가능하도록 만들어져 있고 (인터넷에 노출 X), 로그인한 사람은 전체 클라이언트를 동일한 권한으로 관리합니다.
+
+### 8-1. 사용자 계정 만들기
+
+1. 터미널에서 비밀번호 해시 생성:
+   ```
+   python3 -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('원하는비밀번호'))"
+   ```
+2. `admin/users.example.json`을 복사해서 `admin/users.json`으로 저장 (역시 `.gitignore` 처리되어 GitHub에 올라가지 않음)
+3. 아래처럼 사용자 이름과 방금 생성한 해시값을 넣습니다 (여러 명 추가 가능):
+   ```json
+   { "혜진": "위에서 생성된 긴 해시값", "민수": "또 다른 해시값" }
+   ```
+
+### 8-2. 실행
+
+```
+python3 admin/app.py
+```
+
+같은 컴퓨터에서는 `http://localhost:5000`으로 접속합니다. 사무실의 다른 컴퓨터에서 접속하려면:
+
+1. 이 Mac의 LAN IP 확인: 시스템 설정 → Wi-Fi/네트워크 → IP 주소 확인 (예: `192.168.0.15`)
+2. 다른 컴퓨터 브라우저에서 `http://192.168.0.15:5000` 접속
+
+### 8-3. Mac 부팅 시 자동 실행 (선택)
+
+7-4와 같은 방식으로 `launchd` 등록 시 `KeepAlive`를 `true`로 설정하면, Mac이 켜져 있는 동안 관리자 페이지가 항상 떠 있게 만들 수 있습니다. 필요하시면 요청해주시면 plist 파일까지 만들어드릴게요.
+
+### 8-4. 페이지에서 할 수 있는 것
+
+- **대시보드**: 클라이언트별 최신 스마트플레이스 수치 확인, "지금 실행" 버튼으로 즉시 보고서 생성 + Slack 전송
+- **설정 수정**: `clients.json`을 직접 열지 않고 폼으로 GA4/네이버/블로그/Slack 설정 추가·수정
+- **실적 수치 편집**: `manual_status.json`의 채널 진행 현황/스마트플레이스 수치를 폼으로 편집
+- **지난 보고서 보기**: `reports/` 폴더의 과거 보고서를 클라이언트별로 모아서 확인
+
+페이지에서 저장 버튼을 누르면 자동으로 `git commit + push`까지 되어, 다음 GitHub Actions 실행(매주 월요일 09:00)에 바로 반영됩니다.
+
+---
+
 ## 문제 해결 (자주 겪는 문제)
 
 | 증상 | 확인할 것 |
@@ -217,5 +331,9 @@ GitHub Actions는 **그 시점에 저장소에 저장돼 있는** `config/manual
 | GA4 수치가 전부 0 | 서비스 계정 이메일이 GA4 속성에 "뷰어" 권한으로 추가됐는지, `property_id`가 숫자만 있는지 |
 | 네이버 순위가 전부 "순위권 밖" | `target_blog_id` 값이 `blog.naver.com/` 뒤의 아이디와 정확히 일치하는지 |
 | GitHub Actions 실행이 빨간색(실패) | Actions 탭에서 해당 실행 클릭 → 로그 확인 (대부분 Secret 이름 오타나 값 누락이 원인) |
+| `scrape_smart_place.py` 실행 시 `SmartPlaceLoginRequired` 오류 | 세션이 만료된 것. `python3 scrape_smart_place.py --interactive`로 다시 로그인 |
+| `scrape_smart_place.py`가 방문자 수를 못 찾음 | 네이버가 스마트플레이스 화면 구성을 바꾼 것. `src/smart_place_scraper.py`의 라벨 문자열(`VISITS_LABEL` 등) 확인 필요 |
+| 관리자 페이지 접속이 안 됨 (다른 컴퓨터에서) | Mac의 방화벽 설정, 같은 Wi-Fi/네트워크에 연결되어 있는지, LAN IP가 맞는지 확인 |
+| 관리자 페이지에서 저장 시 git 관련 오류 | 스마트플레이스 스크립트나 GitHub Actions가 동시에 push 중일 수 있음. 잠시 후 다시 저장 시도 |
 | 로컬 실행 시 "환경 변수 ... 설정되지 않았습니다" 오류 | `.env` 파일이 프로젝트 최상위 폴더에 있는지, 이름에 오타가 없는지 확인 |
 | 터미널에서 "command not found: python" 또는 "command not found: pip" | Python이 설치 안 된 것. 5단계의 Python 설치 안내를 따라 설치 후, `python`/`pip` 대신 `python3`/`pip3` 사용 |

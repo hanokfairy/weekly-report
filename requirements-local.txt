@@ -1,0 +1,4 @@
+# 로컬(사무실 컴퓨터)에서만 필요한 의존성입니다. GitHub Actions에는 설치하지 않습니다.
+# 설치: pip3 install -r requirements.txt -r requirements-local.txt
+flask
+playwright

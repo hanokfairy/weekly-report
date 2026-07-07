@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ client.name }} 지난 보고서 - 주간보고 관리자{% endblock %}
+{% block content %}
+<h1>{{ client.name }} 지난 보고서</h1>
+{% for r in reports %}
+<div class="card">
+  <h3>{{ r.date }}</h3>
+  <pre style="white-space: pre-wrap; font-family: inherit;">{{ r.content }}</pre>
+</div>
+{% else %}
+<p>저장된 보고서가 없습니다.</p>
+{% endfor %}
+{% endblock %}

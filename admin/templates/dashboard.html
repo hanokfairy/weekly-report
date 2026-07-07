@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}대시보드 - 주간보고 관리자{% endblock %}
+{% block content %}
+<h1>클라이언트 목록</h1>
+<a class="btn" href="{{ url_for('client_new') }}">+ 새 클라이언트 추가</a>
+
+{% for client in clients %}
+<div class="card">
+  <h2>{{ client.name }}</h2>
+  <p>
+    GA4 속성 ID: {{ client.ga4.property_id }} /
+    Slack 채널: {{ client.slack.channel_name or client.slack.channel_id }}
+  </p>
+  {% set sp = client._status.get('smart_place') %}
+  {% if sp %}
+  <p>스마트플레이스({{ sp.period }}): 방문 {{ sp.visits }}회 / 예약 {{ sp.reservations }}건 / 리뷰 {{ sp.reviews }}건</p>
+  {% else %}
+  <p style="color:#999;">스마트플레이스 수치 없음 — "실적 수치 편집"에서 입력하거나 자동 수집 필요</p>
+  {% endif %}
+
+  <a class="btn secondary" href="{{ url_for('client_edit', client_id=client.id) }}">설정 수정</a>
+  <a class="btn secondary" href="{{ url_for('client_status', client_id=client.id) }}">실적 수치 편집</a>
+  <a class="btn secondary" href="{{ url_for('client_reports', client_id=client.id) }}">지난 보고서 보기</a>
+  <form class="inline" method="post" action="{{ url_for('client_run', client_id=client.id) }}"
+        onsubmit="return confirm('{{ client.name }} 보고서를 지금 생성해서 Slack으로 보낼까요?');">
+    <button type="submit">지금 실행</button>
+  </form>
+</div>
+{% else %}
+<p>등록된 클라이언트가 없습니다.</p>
+{% endfor %}
+{% endblock %}
