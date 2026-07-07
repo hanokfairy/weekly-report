@@ -1,0 +1,4 @@
+google-analytics-data
+python-dotenv
+requests
+feedparser

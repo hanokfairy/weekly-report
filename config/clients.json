@@ -1,0 +1,33 @@
+{
+  "clients": [
+    {
+      "id": "가까이한의원",
+      "name": "가까이한의원",
+      "ga4": {
+        "property_id": "527747072"
+      },
+      "naver_rank": {
+        "keywords": [
+          "미금역한의원",
+          "미금한의원",
+          "미금역한의원추천",
+          "분당한의원"
+        ],
+        "target_blog_id": "wjstmdguss",
+        "max_rank": 30
+      },
+      "alert_threshold_pct": 15,
+      "news_keywords": ["한의원", "교통사고후유증", "추나치료"],
+      "blogs": [
+        {
+          "name": "메인 블로그",
+          "rss_url": "https://rss.blog.naver.com/wjstmdguss.xml"
+        }
+      ],
+      "slack": {
+        "webhook_env": "SLACK_WEBHOOK_URL",
+        "channel_name": "#리뷰"
+      }
+    }
+  ]
+}
