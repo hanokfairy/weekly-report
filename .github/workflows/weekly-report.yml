@@ -33,13 +33,13 @@ jobs:
         env:
           NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
           NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
         run: |
           cat <<EOF > .env
           NAVER_CLIENT_ID=$NAVER_CLIENT_ID
           NAVER_CLIENT_SECRET=$NAVER_CLIENT_SECRET
           GA4_CREDENTIALS_PATH=./config/ga4-service-account.json
-          SLACK_WEBHOOK_URL=$SLACK_WEBHOOK_URL
+          SLACK_BOT_TOKEN=$SLACK_BOT_TOKEN
           EOF
 
       - name: 주간 보고서 실행 (Slack 자동 전송 포함)
@@ -49,6 +49,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin main
           git add reports/*.md
           git diff --cached --quiet || git commit -m "chore: 주간보고 $(date +'%Y-%m-%d')"
           git push

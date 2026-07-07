@@ -10,7 +10,7 @@ from src.naver_rank import check_all_keywords
 from src.news_search import search_medical_issues
 from src.report_builder import build_client_report, build_full_report
 from src.rss_collector import get_last_week_posts
-from src.slack_notifier import send_to_slack
+from src.slack_notifier import send_report_file
 
 REPORTS_DIR = Path(__file__).resolve().parent / "reports"
 DEFAULT_ALERT_THRESHOLD_PCT = 15
@@ -20,7 +20,10 @@ def run() -> None:
     naver_id = env("NAVER_CLIENT_ID")
     naver_secret = env("NAVER_CLIENT_SECRET")
     ga4_credentials_path = env("GA4_CREDENTIALS_PATH")
-    slack_webhook_url = env("SLACK_WEBHOOK_URL")
+    slack_bot_token = env("SLACK_BOT_TOKEN")
+
+    report_date = date.today()
+    title_date = f"{report_date.month}월 {report_date.day}일"
 
     client_reports = []
     for client in load_clients():
@@ -56,22 +59,27 @@ def run() -> None:
                 client_secret=naver_secret,
             )
 
-        client_reports.append(
-            build_client_report(
-                client, ga4_summary, naver_ranks, rss_posts_by_blog, manual_status, news_issues
-            )
+        client_report = build_client_report(
+            client, ga4_summary, naver_ranks, rss_posts_by_blog, manual_status, news_issues
+        )
+        client_reports.append(client_report)
+
+        print(f"[{client['name']}] 슬랙 전송 중...")
+        title = f"[{client['name']}_{title_date} 주간보고]"
+        send_report_file(
+            bot_token=slack_bot_token,
+            channel_id=client["slack"]["channel_id"],
+            title=title,
+            content=client_report,
+            filename=f"{client['name']}_{report_date.isoformat()}_주간보고.txt",
         )
 
-    report_date = date.today().isoformat()
-    full_report = build_full_report(client_reports, report_date)
+    full_report = build_full_report(client_reports, report_date.isoformat())
 
     REPORTS_DIR.mkdir(exist_ok=True)
-    report_path = REPORTS_DIR / f"{report_date}.md"
+    report_path = REPORTS_DIR / f"{report_date.isoformat()}.md"
     report_path.write_text(full_report, encoding="utf-8")
     print(f"보고서 저장: {report_path}")
-
-    print("슬랙 전송 중...")
-    send_to_slack(slack_webhook_url, full_report)
     print("완료.")
 
 

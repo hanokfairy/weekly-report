@@ -1,7 +1,7 @@
 {
   "_comment": "GA4/네이버/RSS로 자동 수집이 불가능한 수치입니다. 매주 리포트 실행 전 담당자가 직접 갱신해주세요.",
   "clients": {
-    "example_clinic": {
+    "가까이한의원": {
       "channels": {
         "blog": { "target": 20, "done": 3 },
         "cafe": { "target": 8, "done": 2, "note": "이번 달 작업 순차 진행 예정입니다" },

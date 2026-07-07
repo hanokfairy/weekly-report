@@ -4,7 +4,7 @@
 
 ## 이 프로그램이 하는 일
 
-매주 다음 데이터를 모아 마크다운 보고서를 만들고 Slack 채널로 자동 전송합니다.
+매주 다음 데이터를 모아 병원별 보고서를 만들고, 각 병원의 Slack 채널로 `[병원명_날짜 주간보고]` 제목의 `.txt` 파일을 첨부해 자동 전송합니다.
 
 - 구글 애널리틱스(GA4) 웹사이트 유입 통계 (+ 전주 대비 증감률)
 - 네이버 검색에서 우리 블로그가 몇 위에 노출되는지
@@ -16,7 +16,7 @@
 
 - [ ] 네이버 오픈API 애플리케이션 (Client ID / Client Secret)
 - [ ] 구글 클라우드 GA4 서비스 계정 JSON 키 파일
-- [ ] Slack Incoming Webhook URL
+- [ ] Slack 봇 토큰 (파일 첨부 전송을 위해 Incoming Webhook 대신 Bot Token 사용)
 - [ ] (자동화하려면) GitHub 계정 및 저장소
 
 ## 폴더 구조
@@ -60,19 +60,27 @@ NAVER_CLIENT_SECRET=여기에_Client_Secret_붙여넣기
 GA4_CREDENTIALS_PATH=./config/ga4-service-account.json
 ```
 
-## 3단계. Slack 자동 전송 설정
+## 3단계. Slack 자동 전송 설정 (봇 토큰 + 파일 첨부)
+
+보고서를 `.txt` 파일로 첨부해서 보내려면 Incoming Webhook이 아니라 **Slack 봇(Bot Token)** 방식을 써야 합니다.
 
 1. https://api.slack.com/apps 접속 → "Create New App" → "From scratch"
-2. 앱 이름 입력, 보고서를 보낼 워크스페이스 선택 → "Create App"
-3. 좌측 메뉴 "Incoming Webhooks" 클릭 → 우측 상단 토글을 켜서 활성화
-4. 페이지 하단 "Add New Webhook to Workspace" 클릭
-5. 보고서를 받을 채널을 선택하고 "허용" 클릭
-6. 생성된 Webhook URL 복사 (`https://hooks.slack.com/services/...` 형태)
+2. 앱 이름 입력(예: `주간보고봇`), 보고서를 보낼 워크스페이스 선택 → "Create App"
+3. 좌측 메뉴 "OAuth & Permissions" 클릭
+4. 페이지 중간 **"Scopes" > "Bot Token Scopes"** 에서 "Add an OAuth Scope" 클릭 → 아래 2개 추가:
+   - `files:write` (파일 업로드용)
+   - `chat:write` (채널에 메시지/파일 전송용)
+5. 같은 페이지 맨 위로 스크롤 → **"Install to Workspace"** 클릭 → 권한 허용
+6. 설치 완료 후 이 페이지 상단에 나오는 **"Bot User OAuth Token"** (`xoxb-`로 시작) 복사
 7. `.env` 파일에 추가:
 
 ```
-SLACK_WEBHOOK_URL=여기에_복사한_URL_붙여넣기
+SLACK_BOT_TOKEN=여기에_복사한_xoxb-토큰_붙여넣기
 ```
+
+8. 보고서를 받을 Slack 채널에 이 봇을 초대해야 합니다: 해당 채널에서 채팅창에 `/invite @주간보고봇` 입력 (3번에서 지은 앱 이름) → 봇이 채널 멤버로 추가됨
+9. 그 채널의 **채널 ID**를 확인합니다: 채널 이름 클릭 → 맨 아래로 스크롤하면 "채널 ID" 표시(`C`로 시작하는 문자열), 또는 채널 우클릭 → "링크 복사" 했을 때 URL 맨 끝부분이 채널 ID입니다.
+10. 확인한 채널 ID를 `config/clients.json`의 해당 병원 `slack.channel_id` 값에 넣습니다 (4단계 참고).
 
 지금까지 `.env` 파일은 아래 4줄이 채워진 상태여야 합니다.
 
@@ -80,7 +88,7 @@ SLACK_WEBHOOK_URL=여기에_복사한_URL_붙여넣기
 NAVER_CLIENT_ID=...
 NAVER_CLIENT_SECRET=...
 GA4_CREDENTIALS_PATH=./config/ga4-service-account.json
-SLACK_WEBHOOK_URL=...
+SLACK_BOT_TOKEN=xoxb-...
 ```
 
 ## 4단계. 클라이언트(병원) 추가하기
@@ -104,7 +112,7 @@ SLACK_WEBHOOK_URL=...
   ],
   "alert_threshold_pct": 15,
   "news_keywords": ["진료과목 키워드1", "진료과목 키워드2"],
-  "slack": { "webhook_env": "SLACK_WEBHOOK_URL", "channel_name": "#채널이름" }
+  "slack": { "channel_id": "채널ID(C로 시작)", "channel_name": "#채널이름" }
 }
 ```
 
@@ -112,6 +120,9 @@ SLACK_WEBHOOK_URL=...
 - `target_blog_id`: 네이버 블로그 주소 `blog.naver.com/이부분`
 - `alert_threshold_pct`: 전주 대비 유입이 이 %만큼 변하면 관련 뉴스를 자동 검색 (기본 15)
 - `news_keywords`: 유입 급변 시 검색할 진료과/이슈 키워드 (비워두면 `naver_rank.keywords`의 앞 3개를 자동 사용)
+- `slack.channel_id`: 3단계 8~9번에서 확인한 채널 ID (실제로 전송에 사용되는 값). `channel_name`은 사람이 보기 위한 메모일 뿐 프로그램에서 사용하지 않습니다.
+
+각 병원마다 Slack으로 `[병원명_날짜 주간보고]` 라는 제목의 `.txt` 파일이 개별 전송됩니다.
 
 병원을 여러 개 등록하면 프로그램 실행 한 번으로 전부 처리되어 하나의 보고서로 합쳐집니다.
 
@@ -141,8 +152,8 @@ python3 main.py
 > macOS는 `python`/`pip`가 아니라 **`python3`/`pip3`** 명령어를 씁니다.
 
 정상적으로 끝나면:
-- `reports/오늘날짜.md` 파일이 생성됨
-- 설정한 Slack 채널로 메시지가 자동 전송됨
+- `reports/오늘날짜.md` 파일이 생성됨 (전체 병원 통합본, 로컬 기록용)
+- 병원별로 설정한 Slack 채널에 `[병원명_날짜 주간보고]` 제목의 `.txt` 파일이 첨부되어 전송됨
 
 ---
 
@@ -172,7 +183,7 @@ git commit -m "init"
 |---|---|
 | `NAVER_CLIENT_ID` | 1단계에서 발급받은 네이버 Client ID |
 | `NAVER_CLIENT_SECRET` | 1단계에서 발급받은 네이버 Client Secret |
-| `SLACK_WEBHOOK_URL` | 3단계에서 만든 Slack Webhook URL |
+| `SLACK_BOT_TOKEN` | 3단계에서 발급받은 `xoxb-`로 시작하는 Slack Bot Token |
 | `GA4_SERVICE_ACCOUNT_JSON` | 2단계에서 다운로드한 JSON 파일을 **텍스트 에디터로 열어 전체 내용을 그대로 복사**해서 붙여넣기 |
 
 `.env` 파일이나 로컬 JSON 파일은 GitHub에 올라가지 않으므로, 이 4개의 Secret이 그 역할을 대신합니다.
@@ -200,7 +211,9 @@ GitHub Actions는 **그 시점에 저장소에 저장돼 있는** `config/manual
 
 | 증상 | 확인할 것 |
 |---|---|
-| Slack 메시지가 안 옴 | `SLACK_WEBHOOK_URL` 값이 정확한지, Webhook이 원하는 채널에 연결됐는지 |
+| Slack 메시지/파일이 안 옴 | `SLACK_BOT_TOKEN`이 정확한지, 봇이 해당 채널에 초대(`/invite @봇이름`)되어 있는지, `clients.json`의 `channel_id`가 맞는지 |
+| Slack 전송 시 `not_in_channel` 오류 | 봇이 채널 멤버가 아닌 것. 채널에서 `/invite @봇이름` 실행 |
+| Slack 전송 시 `missing_scope` 오류 | Slack App의 "OAuth & Permissions"에서 `files:write`, `chat:write` 스코프가 추가·설치됐는지 확인 |
 | GA4 수치가 전부 0 | 서비스 계정 이메일이 GA4 속성에 "뷰어" 권한으로 추가됐는지, `property_id`가 숫자만 있는지 |
 | 네이버 순위가 전부 "순위권 밖" | `target_blog_id` 값이 `blog.naver.com/` 뒤의 아이디와 정확히 일치하는지 |
 | GitHub Actions 실행이 빨간색(실패) | Actions 탭에서 해당 실행 클릭 → 로그 확인 (대부분 Secret 이름 오타나 값 누락이 원인) |

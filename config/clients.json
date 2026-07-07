@@ -25,7 +25,7 @@
         }
       ],
       "slack": {
-        "webhook_env": "SLACK_WEBHOOK_URL",
+        "channel_id": "여기에_채널ID_입력",
         "channel_name": "#리뷰"
       }
     }

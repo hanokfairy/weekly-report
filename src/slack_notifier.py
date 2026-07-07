@@ -1,23 +1,49 @@
 import requests
 
-SLACK_TEXT_LIMIT = 39000  # Slack incoming webhook text 한도(4만자)에 여유를 둠
+SLACK_API_BASE = "https://slack.com/api"
 
 
-def _to_slack_mrkdwn(markdown_text: str) -> str:
-    """Slack mrkdwn은 굵은 글씨가 단일 별표(*)라 표준 마크다운(**)과 다름."""
-    lines = []
-    for line in markdown_text.splitlines():
-        stripped = line.lstrip("#").strip()
-        if line.startswith("#"):
-            lines.append(f"*{stripped}*")
-        else:
-            lines.append(line.replace("**", "*"))
-    return "\n".join(lines)
+def _call(bot_token: str, endpoint: str, **kwargs) -> dict:
+    headers = {"Authorization": f"Bearer {bot_token}"}
+    resp = requests.post(f"{SLACK_API_BASE}/{endpoint}", headers=headers, timeout=15, **kwargs)
+    resp.raise_for_status()
+    data = resp.json()
+    if not data.get("ok"):
+        raise RuntimeError(f"Slack API 오류 ({endpoint}): {data.get('error')}")
+    return data
 
 
-def send_to_slack(webhook_url: str, markdown_report: str) -> None:
-    text = _to_slack_mrkdwn(markdown_report)
-    chunks = [text[i : i + SLACK_TEXT_LIMIT] for i in range(0, len(text), SLACK_TEXT_LIMIT)] or [""]
-    for chunk in chunks:
-        resp = requests.post(webhook_url, json={"text": chunk}, timeout=10)
-        resp.raise_for_status()
+def send_report_file(
+    bot_token: str,
+    channel_id: str,
+    title: str,
+    content: str,
+    filename: str,
+) -> None:
+    """주간보고 내용을 .txt 파일로 만들어 Slack 채널에 첨부 전송한다 (Slack 파일 업로드 v2 흐름)."""
+    file_bytes = content.encode("utf-8")
+
+    upload_info = _call(
+        bot_token,
+        "files.getUploadURLExternal",
+        data={"filename": filename, "length": len(file_bytes)},
+    )
+    upload_url = upload_info["upload_url"]
+    file_id = upload_info["file_id"]
+
+    upload_resp = requests.post(
+        upload_url,
+        files={"file": (filename, file_bytes, "text/plain")},
+        timeout=30,
+    )
+    upload_resp.raise_for_status()
+
+    _call(
+        bot_token,
+        "files.completeUploadExternal",
+        json={
+            "files": [{"id": file_id, "title": title}],
+            "channel_id": channel_id,
+            "initial_comment": title,
+        },
+    )
