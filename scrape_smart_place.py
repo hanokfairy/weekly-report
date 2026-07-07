@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -9,7 +10,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from src.config import env, load_clients
 from src.ga4_client import last_full_week
 from src.slack_notifier import send_text_message
-from src.smart_place_scraper import SmartPlaceLoginRequired, fetch_smart_place_stats
+from src.smart_place_scraper import (
+    SmartPlaceLoginRequired,
+    VpnNotConnected,
+    check_vpn_connected,
+    fetch_smart_place_stats,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent
 CONFIG_DIR = ROOT_DIR / "config"
@@ -30,13 +36,33 @@ def run(interactive: bool) -> None:
         print(f"{CREDENTIALS_PATH}가 없거나 비어 있습니다. 등록된 클라이언트가 없어 종료합니다.")
         return
 
+    clients_by_id = {c["id"]: c for c in load_clients()}
+
+    try:
+        check_vpn_connected(os.getenv("EXPECTED_VPN_IP_PREFIX") or None)
+    except VpnNotConnected as e:
+        print(f"중단: {e}")
+        try:
+            slack_bot_token = env("SLACK_BOT_TOKEN")
+        except RuntimeError:
+            slack_bot_token = None
+        if slack_bot_token:
+            for client_id in credentials:
+                client = clients_by_id.get(client_id)
+                if client:
+                    send_text_message(
+                        slack_bot_token,
+                        client["slack"]["channel_id"],
+                        f"[{client['name']}] 스마트플레이스 자동 수집 중단 — ezVPN 연결 확인이 필요합니다.\n사유: {e}",
+                    )
+        return
+
     with open(MANUAL_STATUS_PATH, encoding="utf-8") as f:
         manual_status = json.load(f)
 
     start, end = last_full_week()
     period = f"{start.month}/{start.day} ~ {end.month}/{end.day}"
 
-    clients_by_id = {c["id"]: c for c in load_clients()}
     changed = False
     failures = []
 

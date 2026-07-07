@@ -20,6 +20,8 @@ from src.config import (
 )
 from src.pipeline import run_for_client
 
+MAX_BLOG_SLOTS = 5
+
 ADMIN_DIR = Path(__file__).resolve().parent
 USERS_PATH = ADMIN_DIR / "users.json"
 REPORTS_DIR = ROOT_DIR / "reports"
@@ -85,6 +87,14 @@ def dashboard():
     return render_template("dashboard.html", clients=clients)
 
 
+def _pad_blog_slots(blogs: list[dict]) -> list[dict]:
+    empty = {"name": "", "rss_url": "", "blog_id": "", "keywords": [], "max_rank": 30}
+    slots = [dict(empty, **b) for b in blogs[:MAX_BLOG_SLOTS]]
+    while len(slots) < MAX_BLOG_SLOTS:
+        slots.append(dict(empty))
+    return slots
+
+
 @app.route("/clients/new", methods=["GET", "POST"])
 @login_required
 def client_new():
@@ -93,7 +103,12 @@ def client_new():
         new_client = _client_from_form(request.form)
         if any(c["id"] == new_client["id"] for c in data["clients"]):
             flash(f"이미 존재하는 id입니다: {new_client['id']}")
-            return render_template("client_form.html", client=new_client, is_new=True)
+            return render_template(
+                "client_form.html",
+                client=new_client,
+                is_new=True,
+                blog_slots=_pad_blog_slots(new_client["blogs"]),
+            )
         data["clients"].append(new_client)
         save_clients(data)
         git_commit_and_push(
@@ -101,7 +116,9 @@ def client_new():
         )
         flash(f"{new_client['name']} 추가 완료")
         return redirect(url_for("dashboard"))
-    return render_template("client_form.html", client=None, is_new=True)
+    return render_template(
+        "client_form.html", client=None, is_new=True, blog_slots=_pad_blog_slots([])
+    )
 
 
 @app.route("/clients/<client_id>/edit", methods=["GET", "POST"])
@@ -123,24 +140,41 @@ def client_edit(client_id):
         flash(f"{updated['name']} 저장 완료")
         return redirect(url_for("dashboard"))
 
-    return render_template("client_form.html", client=existing, is_new=False)
+    return render_template(
+        "client_form.html",
+        client=existing,
+        is_new=False,
+        blog_slots=_pad_blog_slots(existing["blogs"]),
+    )
+
+
+def _blogs_from_form(form) -> list[dict]:
+    blogs = []
+    for i in range(MAX_BLOG_SLOTS):
+        name = form.get(f"blog_name_{i}", "").strip()
+        rss_url = form.get(f"blog_rss_{i}", "").strip()
+        if not name or not rss_url:
+            continue  # 빈 슬롯은 건너뜀
+        keywords = [k.strip() for k in form.get(f"blog_keywords_{i}", "").split(",") if k.strip()]
+        blogs.append(
+            {
+                "name": name,
+                "rss_url": rss_url,
+                "blog_id": form.get(f"blog_id_{i}", "").strip(),
+                "keywords": keywords,
+                "max_rank": int(form.get(f"blog_max_rank_{i}") or 30),
+            }
+        )
+    return blogs
 
 
 def _client_from_form(form, fixed_id: str | None = None) -> dict:
-    keywords = [k.strip() for k in form["keywords"].split(",") if k.strip()]
     news_keywords = [k.strip() for k in form.get("news_keywords", "").split(",") if k.strip()]
     return {
         "id": fixed_id or form["id"].strip(),
         "name": form["name"].strip(),
         "ga4": {"property_id": form["property_id"].strip()},
-        "naver_rank": {
-            "keywords": keywords,
-            "target_blog_id": form["target_blog_id"].strip(),
-            "max_rank": int(form.get("max_rank") or 30),
-        },
-        "blogs": [
-            {"name": "메인 블로그", "rss_url": form["rss_url"].strip()},
-        ],
+        "blogs": _blogs_from_form(form),
         "alert_threshold_pct": int(form.get("alert_threshold_pct") or 15),
         "news_keywords": news_keywords,
         "slack": {

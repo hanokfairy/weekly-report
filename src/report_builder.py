@@ -1,7 +1,7 @@
 def build_client_report(
     client: dict,
     ga4_summary: dict,
-    naver_ranks: dict[str, list[int]],
+    naver_ranks_by_blog: dict[str, dict[str, list[int]]],
     rss_posts_by_blog: dict[str, list[dict]],
     manual_status: dict,
     news_issues: list[dict] | None = None,
@@ -25,11 +25,13 @@ def build_client_report(
         lines.append(f"- 영수증 리뷰: {r['target']}건 목표 {note}")
     lines.append("")
 
-    # 2. 주요 관리 키워드 노출 현황 (네이버 검색 API)
+    # 2. 주요 관리 키워드 노출 현황 (네이버 검색 API, 블로그별)
     lines.append("## 2. 주요 관리 키워드 노출 현황")
-    for keyword, ranks in naver_ranks.items():
-        rank_str = ", ".join(f"{r}위" for r in sorted(ranks)) if ranks else "순위권 밖"
-        lines.append(f"- {keyword}: {rank_str}")
+    for blog_name, ranks in naver_ranks_by_blog.items():
+        lines.append(f"### {blog_name}")
+        for keyword, rank_list in ranks.items():
+            rank_str = ", ".join(f"{r}위" for r in sorted(rank_list)) if rank_list else "순위권 밖"
+            lines.append(f"- {keyword}: {rank_str}")
     lines.append("")
 
     # 3. 스마트 플레이스 / GA4 유입 통계

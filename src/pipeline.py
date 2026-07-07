@@ -23,14 +23,16 @@ def run_for_client(
     ga4_summary = fetch_ga4_summary(client["ga4"]["property_id"], ga4_credentials_path)
 
     print(f"[{client['name']}] 네이버 키워드 순위 확인 중...")
-    naver_cfg = client["naver_rank"]
-    naver_ranks = check_all_keywords(
-        keywords=naver_cfg["keywords"],
-        target_blog_id=naver_cfg["target_blog_id"],
-        client_id=naver_id,
-        client_secret=naver_secret,
-        max_rank=naver_cfg.get("max_rank", 30),
-    )
+    naver_ranks_by_blog = {
+        blog["name"]: check_all_keywords(
+            keywords=blog["keywords"],
+            target_blog_id=blog["blog_id"],
+            client_id=naver_id,
+            client_secret=naver_secret,
+            max_rank=blog.get("max_rank", 30),
+        )
+        for blog in client["blogs"]
+    }
 
     print(f"[{client['name']}] 블로그 RSS 수집 중...")
     rss_posts_by_blog = {
@@ -43,7 +45,8 @@ def run_for_client(
     pct_change = ga4_summary.get("pct_change")
     threshold = client.get("alert_threshold_pct", DEFAULT_ALERT_THRESHOLD_PCT)
     if pct_change is not None and abs(pct_change) >= threshold:
-        news_keywords = client.get("news_keywords") or client["naver_rank"]["keywords"][:3]
+        all_blog_keywords = [kw for blog in client["blogs"] for kw in blog["keywords"]]
+        news_keywords = client.get("news_keywords") or all_blog_keywords[:3]
         print(f"[{client['name']}] 유입 변동 {pct_change:+.1f}% 감지, 관련 의료 이슈 검색 중...")
         news_issues = search_medical_issues(
             keywords=news_keywords,
@@ -52,7 +55,7 @@ def run_for_client(
         )
 
     client_report = build_client_report(
-        client, ga4_summary, naver_ranks, rss_posts_by_blog, manual_status, news_issues
+        client, ga4_summary, naver_ranks_by_blog, rss_posts_by_blog, manual_status, news_issues
     )
 
     report_date = date.today()

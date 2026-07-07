@@ -12,17 +12,26 @@
   <label>GA4 속성 ID (숫자만)</label>
   <input type="text" name="property_id" value="{{ client.ga4.property_id if client else '' }}" required>
 
-  <label>네이버 순위 체크 키워드 (콤마로 구분)</label>
-  <input type="text" name="keywords" value="{{ client.naver_rank.keywords|join(', ') if client else '' }}" required>
+  <h3>블로그 (여러 개 등록 가능, 블로그마다 자기만의 체크 키워드를 가짐)</h3>
+  <p style="color:#666;">한 병원이 블로그를 여러 개 운영하면 아래 칸을 추가로 채우세요. 이름/RSS 주소가 비어 있는 줄은 저장 시 무시됩니다.</p>
+  {% for slot in blog_slots %}
+  <div class="card">
+    <label>블로그 {{ loop.index }} - 이름</label>
+    <input type="text" name="blog_name_{{ loop.index0 }}" value="{{ slot.name }}" placeholder="예: 메인 블로그">
 
-  <label>네이버 블로그 아이디 (blog.naver.com/이 부분)</label>
-  <input type="text" name="target_blog_id" value="{{ client.naver_rank.target_blog_id if client else '' }}" required>
+    <label>블로그 {{ loop.index }} - RSS 주소</label>
+    <input type="text" name="blog_rss_{{ loop.index0 }}" value="{{ slot.rss_url }}" placeholder="https://rss.blog.naver.com/아이디.xml">
 
-  <label>순위 체크 범위 (기본 30)</label>
-  <input type="number" name="max_rank" value="{{ client.naver_rank.max_rank if client else 30 }}">
+    <label>블로그 {{ loop.index }} - 네이버 블로그 아이디 (blog.naver.com/이 부분, 순위 체크용)</label>
+    <input type="text" name="blog_id_{{ loop.index0 }}" value="{{ slot.blog_id }}">
 
-  <label>블로그 RSS 주소</label>
-  <input type="text" name="rss_url" value="{{ client.blogs[0].rss_url if client and client.blogs else '' }}" required>
+    <label>블로그 {{ loop.index }} - 체크할 키워드 (콤마로 구분, 이 블로그에만 적용)</label>
+    <input type="text" name="blog_keywords_{{ loop.index0 }}" value="{{ slot.keywords|join(', ') }}">
+
+    <label>블로그 {{ loop.index }} - 순위 체크 범위 (기본 30)</label>
+    <input type="number" name="blog_max_rank_{{ loop.index0 }}" value="{{ slot.max_rank }}">
+  </div>
+  {% endfor %}
 
   <label>유입 변동 알림 기준 (%, 기본 15)</label>
   <input type="number" name="alert_threshold_pct" value="{{ client.alert_threshold_pct if client else 15 }}">

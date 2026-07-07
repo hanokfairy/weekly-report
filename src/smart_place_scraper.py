@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import requests
 from playwright.sync_api import Page, sync_playwright
 
 LOGIN_URL = "https://nid.naver.com/nidlogin.login"
@@ -15,6 +16,30 @@ REVIEWS_LABEL = "리뷰"
 
 class SmartPlaceLoginRequired(RuntimeError):
     """세션이 만료되어 사람이 직접 로그인/본인인증을 해야 하는 경우."""
+
+
+class VpnNotConnected(RuntimeError):
+    """ezVPN 등 VPN이 연결되지 않은 것으로 보이는 경우."""
+
+
+def get_public_ip(timeout: int = 5) -> str:
+    return requests.get("https://api.ipify.org", timeout=timeout).text.strip()
+
+
+def check_vpn_connected(expected_ip_prefix: str | None) -> str:
+    """현재 공인 IP를 확인하고, expected_ip_prefix가 설정되어 있는데 일치하지 않으면 에러를 낸다.
+
+    ezVPN처럼 별도 앱에서 계정으로 로그인해야 하는 VPN은 이 코드가 직접 연결할 수 없으므로,
+    사람이 미리 ezVPN에 로그인/연결해둔 상태인지를 IP로 간접 확인하는 안전장치다.
+    """
+    ip = get_public_ip()
+    print(f"현재 공인 IP: {ip}")
+    if expected_ip_prefix and not ip.startswith(expected_ip_prefix):
+        raise VpnNotConnected(
+            f"현재 IP({ip})가 예상 VPN IP 대역({expected_ip_prefix}...)과 다릅니다. "
+            "ezVPN을 실행해 로그인/연결한 뒤 다시 시도하세요."
+        )
+    return ip
 
 
 def _session_path(client_id: str) -> Path:
